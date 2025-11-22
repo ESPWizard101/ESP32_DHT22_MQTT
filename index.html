@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+    <title>DHT22 MQTT Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">  
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>  
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #f4f7fa;  
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;  
+        }
+
+        .container {
+            background: white;
+            border-radius: 12px;  
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);  
+            padding: 30px;
+            max-width: 400px;  
+            width: 100%;
+            text-align: center;
+            transition: transform 0.3s ease;  
+        }
+
+        .container:hover {
+            transform: translateY(-5px);  
+        }
+
+        h1 {
+            font-size: 1.8em;
+            margin-bottom: 20px;
+            color: #2c3e50; 
+        }
+
+        .reading {
+            font-size: 1.5em;
+            margin: 15px 0;
+            padding: 10px;
+            border-radius: 8px;
+            background-color: #e8f4fd;  
+            transition: opacity 0.5s ease;  
+        }
+
+        .reading.temp {
+            color: #3498db;  
+            border: 1px solid #3498db;
+        }
+
+        .reading.humid {
+            color: #27ae60;  
+            border: 1px solid #27ae60;
+        }
+
+        #status {
+            font-size: 1em;
+            margin-top: 20px;
+            padding: 8px;
+            border-radius: 6px;
+            background-color: #f1c40f;  
+            color: white;
+        }
+
+        .connected { background-color: #2ecc71; }  
+        .error { background-color: #e74c3c; }      
+
+        
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+                max-width: 90%;
+            }
+            h1 { font-size: 1.5em; }
+            .reading { font-size: 1.2em; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>ESP32 DHT22 Sensor Dashboard</h1>
+        <div class="reading temp">Temperature: <span id="temp">--</span> °C</div>
+        <div class="reading humid">Humidity: <span id="humid">--</span> %</div>
+        <div id="status">Connecting...</div>
+    </div>
+
+    <script>
+        // Configuration - Match your MQTT_TOPIC
+        const MQTT_BROKER = 'ws://broker.hivemq.com:8000/mqtt';  // WebSocket URL
+        const MQTT_TOPIC = 'dht22/mydata';  // Same as ESP32
+
+        // DOM elements
+        const tempSpan = document.getElementById('temp');
+        const humidSpan = document.getElementById('humid');
+        const statusDiv = document.getElementById('status');
+        const readings = document.querySelectorAll('.reading');  // For animations
+
+        // Connect to MQTT
+        const client = mqtt.connect(MQTT_BROKER);
+
+        client.on('connect', () => {
+            statusDiv.innerText = 'Connected to MQTT';
+            statusDiv.classList.add('connected');
+            client.subscribe(MQTT_TOPIC, (err) => {
+                if (!err) {
+                    console.log('Subscribed to topic');
+                } else {
+                    console.error('Subscription error:', err);
+                    statusDiv.innerText = 'Subscription failed';
+                    statusDiv.classList.add('error');
+                }
+            });
+        });
+
+        client.on('message', (topic, message) => {
+            if (topic === MQTT_TOPIC) {
+                try {
+                    const data = JSON.parse(message.toString());
+                    tempSpan.innerText = data.temperature.toFixed(1);
+                    humidSpan.innerText = data.humidity.toFixed(1);
+
+                    // Fade-in animation for updates
+                    readings.forEach(reading => {
+                        reading.style.opacity = 0;
+                        setTimeout(() => { reading.style.opacity = 1; }, 100);
+                    });
+                } catch (e) {
+                    console.error('JSON parse error:', e);
+                    statusDiv.innerText = 'Data parse error';
+                    statusDiv.classList.add('error');
+                }
+            }
+        });
+
+        client.on('error', (err) => {
+            statusDiv.innerText = 'Connection error: ' + err;
+            statusDiv.classList.add('error');
+        });
+
+        client.on('offline', () => {
+            statusDiv.innerText = 'Disconnected. Reconnecting...';
+            statusDiv.classList.remove('connected', 'error');
+        });
+    </script>
+</body>
+</html>
