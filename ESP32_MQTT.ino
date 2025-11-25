@@ -99,7 +99,7 @@ void connectToMQTT() {
 
     } else {
       Serial.print(".");
-      delay(3000);  // Wait before retry
+      delay(3000);  
       retries++;
     }
   }
